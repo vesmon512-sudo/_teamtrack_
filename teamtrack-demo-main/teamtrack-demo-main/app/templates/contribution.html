@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Contribution - {{ p.code }}{% endblock %}
+{% block content %}
+<div class="banner">
+  <div>
+    <h1>📈 Báo cáo điểm đóng góp chi tiết</h1>
+    <p>Đo lường tự động & minh bạch theo công thức đóng góp của nhóm • Tổng điểm nhóm: <strong>{{ total_points }}</strong> pts</p>
+  </div>
+  <a class="btn ghost" style="background:#29272A; color:#fff; border-color:#29272A;" href="{{ url_for('report', pid=p.id) }}">📄 Xuất báo cáo PDF cho GV</a>
+</div>
+
+<div class="bento">
+  <div class="card col-3">
+    <h2>⚙️ Công thức tính Contribution</h2>
+    <p class="sub">Khối lượng (Workload) + Độ đúng hạn (On-Time) + Đánh giá chéo (Peer Review){% if leader %} • Bạn là Trưởng nhóm, có thể tùy chỉnh{% else %} • Trưởng nhóm có thể thay đổi{% endif %}</p>
+
+    <form method="post" class="form-grid" {% if not leader %}style="opacity:.5; pointer-events:none;"{% endif %}>
+      <div>
+        <label>1. Tỷ trọng khối lượng công việc (Task Points)</label>
+        <input type="number" name="workload" min="0" max="80" step="5" value="{{ formula.workload_pct }}">
+      </div>
+      <div>
+        <label>2. Tỷ trọng độ đúng hạn deadline</label>
+        <input type="number" name="ontime" min="0" max="40" step="5" value="{{ formula.ontime_pct }}">
+      </div>
+      <div>
+        <label>3. Tỷ trọng đánh giá chéo (Peer Review)</label>
+        <input type="number" name="peer" min="0" max="30" step="5" value="{{ formula.peer_pct }}">
+      </div>
+      <div>
+        <label>4. Thưởng trách nhiệm Trưởng nhóm (Leader Bonus)</label>
+        <select name="leader_bonus">
+          <option value="0" {{ 'selected' if formula.leader_bonus_pct == 0 }}>0% (Không cộng)</option>
+          <option value="5" {{ 'selected' if formula.leader_bonus_pct == 5 }}>+5% (Điều phối & nộp bài)</option>
+          <option value="10" {{ 'selected' if formula.leader_bonus_pct == 10 }}>+10% (Gánh vác chính)</option>
+        </select>
+      </div>
+      <div class="form-actions" style="grid-column:1/-1;">
+        {% if leader %}<button class="btn" type="submit">Áp dụng công thức</button>{% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div class="card col-3 wide">
+    <h2>Bảng tổng hợp đóng góp của từng thành viên</h2>
+    <p class="sub">Cập nhật tự động theo task đã nộp & thưởng đúng hạn</p>
+    <div style="overflow-x:auto;">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Thành viên</th>
+            <th style="text-align:center;">Tasks hoàn tất</th>
+            <th style="text-align:center;">Đúng hạn</th>
+            <th style="text-align:center;">Tổng điểm</th>
+            <th style="text-align:center;">Bonus</th>
+            <th>% đóng góp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in contrib %}
+          <tr>
+            <td>
+              <strong>{{ r.short_name }}</strong>{% if r.member_role == 'leader' %} <span class="badge b-yel">Trưởng nhóm 👑</span>{% endif %}
+              <div style="font-size:10.5px; color:var(--ink-60);">{{ r.full_name }}</div>
+            </td>
+            <td style="text-align:center; font-weight:700;">{{ r.done }} / {{ r.assigned }}</td>
+            <td style="text-align:center; font-weight:700; color:{{ '#059669' if r.done and r.ontime == r.done else '#B06E00' }};">
+              {% if r.done %}{{ (100 * r.ontime / r.done) | round|int }}%{% else %}-{% endif %}
+            </td>
+            <td style="text-align:center; font-weight:800; color:#6B48FF;">{{ r.points }}</td>
+            <td style="text-align:center; font-weight:700; color:#059669;">+{{ r.bonus }}%</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="bar" style="flex:1; min-width:80px;"><div style="width:{{ r.contrib }}%; --c:#6B48FF;"></div></div>
+                <strong style="color:#6B48FF;">{{ r.contrib }}%</strong>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

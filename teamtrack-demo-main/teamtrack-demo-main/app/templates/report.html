@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Báo cáo GV - {{ p.code }}{% endblock %}
+{% block content %}
+<div class="no-print" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:16px 0;">
+  <div>
+    <h1 class="page-title" style="margin:0;">📄 Báo cáo điểm đóng góp nộp Giảng viên</h1>
+    <p class="page-sub" style="margin:2px 0 0;">Bấm <strong>Ctrl/Cmd + P</strong> để in & lưu thành PDF, hoặc dùng nút In báo cáo bên dưới.</p>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <a class="btn ghost" href="{{ url_for('project', pid=p.id) }}">← Quay về dự án</a>
+    <button class="btn" onclick="window.print()">🖨 In / Lưu PDF</button>
+  </div>
+</div>
+
+<div class="report">
+  <h1>BẢNG TỔNG HỢP ĐIỂM ĐÓNG GÓP NHÓM — TEAMTRACK</h1>
+  <div class="meta" style="margin-top:6px;">
+    Môn học: <strong>{{ p.code }}</strong> • Đề tài: {{ p.title }}<br>
+    Giảng viên hướng dẫn: {{ p.teacher }} • Mục tiêu: {{ p.target }} • Hạn nộp: {{ p.deadline }}
+  </div>
+
+  <table style="margin-top:16px;">
+    <tr>
+      <th style="width:34%;">Công thức tính điểm áp dụng</th>
+      <th>Chi tiết</th>
+    </tr>
+    <tr>
+      <td><strong>Công thức đóng góp</strong></td>
+      <td>Khối lượng: {{ formula.workload_pct }}% • Đúng hạn: {{ formula.ontime_pct }}% • Peer Review: {{ formula.peer_pct }}%{% if formula.leader_bonus_pct %} • Thưởng Trưởng nhóm: +{{ formula.leader_bonus_pct }}%{% endif %}</td>
+    </tr>
+    <tr>
+      <td><strong>Tiến độ tổng thể</strong></td>
+      <td>{{ progress }}% hoàn thành ({{ done }}/{{ total }} task đã xong)</td>
+    </tr>
+    <tr>
+      <td><strong>Cột mốc dự kiến</strong></td>
+      <td>{% for m in milestones %}{{ m.label }} ({{ m.due_date or 'chưa đặt' }}){% if not loop.last %} • {% endif %}{% endfor %}</td>
+    </tr>
+  </table>
+
+  <table style="margin-top:16px;">
+    <thead>
+      <tr>
+        <th>Thứ Tự</th>
+        <th>Thành viên</th>
+        <th>Học phần / Vai trò</th>
+        <th>Tasks hoàn tất</th>
+        <th>Tỷ lệ đúng hạn</th>
+        <th>Điểm thực hiện</th>
+        <th>Bonus</th>
+        <th>% Đóng góp</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set ranked = contrib | sort(attribute='contrib', reverse=true) %}
+      {% for r in ranked %}
+      <tr>
+        <td style="text-align:center; font-weight:800;">{{ loop.index }}</td>
+        <td><strong>{{ r.full_name }}</strong><br><small>MSSV: {{ r.student_id }}</small></td>
+        <td>{{ 'Trưởng nhóm' if r.member_role == 'leader' else 'Thành viên' }}{% if loop.first %} • MVP Đợt này 👑{% endif %}</td>
+        <td style="text-align:center;">{{ r.done }}/{{ r.assigned }}</td>
+        <td style="text-align:center;">{% if r.done %}{{ (100 * r.ontime / r.done) | round|int }}%{% else %}-{% endif %}</td>
+        <td style="text-align:center; font-weight:800;">{{ r.points }}</td>
+        <td style="text-align:center; color:#059669;">+{{ r.bonus }}%</td>
+        <td style="text-align:center; font-weight:800; color:#6B48FF;">{{ r.contrib }}%</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="sign">
+    <div>
+      Hà Nội, ngày {{ print_note }}<br>
+      Trưởng nhóm xác nhận,
+    </div>
+    <div class="sig-box" style="margin-left:40px;">
+      <div class="sig-line"></div>
+      <div style="font-weight:800;">{{ leader.short_name if leader else 'Trưởng nhóm' }}</div>
+      <div style="font-size:10.5px; color:var(--ink-60);">MSSV: {{ leader.student_id if leader else '-' }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

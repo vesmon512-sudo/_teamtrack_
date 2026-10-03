@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TeamTrack{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap header-row">
+    <a class="brand" href="{{ url_for('dashboard') if 'uid' in session else url_for('login') }}">
+      <span class="brand-logo">TT</span>
+      <span class="brand-name">TeamTrack</span>
+      <span class="brand-sub">Nền tảng quản lý bài tập nhóm</span>
+    </a>
+    <nav class="topnav">
+      <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">📁 Dự án của tôi</a>
+      {% if p %}
+      <a class="nav-link" href="{{ url_for('project', pid=p.id) }}">📊 Tổng quan</a>
+      <a class="nav-link" href="{{ url_for('tasks', pid=p.id) }}">📋 Kanban & Nộp bài</a>
+      <a class="nav-link" href="{{ url_for('meetings', pid=p.id) }}">👥 Họp & Tài liệu</a>
+      <a class="nav-link" href="{{ url_for('contribution', pid=p.id) }}">📈 Contribution</a>
+      <a class="nav-link" href="{{ url_for('report', pid=p.id) }}">📄 Báo cáo GV</a>
+      {% endif %}
+      {% if 'uid' in session %}
+      <a class="nav-link logout" href="{{ url_for('logout') }}">🚪 Đăng xuất</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+  <div class="wrap">
+    {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<main class="wrap">
+  {% if user %}
+  <div class="user-chip">
+    <span class="avatar" style="background:hsl({{ user.id * 67 % 360 }},60%,55%)">{{ user.short_name[:1] }}</span>
+    <span class="user-chip-text">
+      <strong>{{ user.full_name }}</strong>
+      <small>{{ user.default_role }} • {{ user.credibility_points }} pts</small>
+    </span>
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="wrap footer">
+  TeamTrack — Webapp demo báo cáo môn • FE: HTML+CSS • BE: Python/Flask • DB: MySQL
+</footer>
+
+</body>
+</html>

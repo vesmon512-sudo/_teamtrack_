@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ p.code }} - TeamTrack{% endblock %}
+{% block content %}
+<div class="banner">
+  <div style="display:flex; gap:14px; align-items:center;">
+    <div class="b-icon">{{ tpl.icon }}</div>
+    <div>
+      <h1>{{ p.title }}</h1>
+      <p>{{ p.code }} • GVHD: <strong>{{ p.teacher }}</strong> • Hạn nộp <strong style="color:#FF6B6B;">{{ deadline_text }}</strong> • Mục tiêu: <span class="badge b-pur">{{ p.target }}</span></p>
+    </div>
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a class="btn" href="{{ url_for('tasks', pid=p.id) }}">📋 Xem Task cần làm</a>
+    <a class="btn ghost" href="{{ url_for('contribution', pid=p.id) }}">📐 Công thức Contri</a>
+  </div>
+</div>
+
+<div class="bento">
+  <div class="card col-3">
+    <h2>Masterplan & Tiến độ tổng thể</h2>
+    <p class="sub">Lộ trình chuẩn hóa theo {{ 'tháng' if 'nckh' in p.template_key else 'tuần' }} (template {{ tpl.icon }} {{ tpl.name }})</p>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; background:#F8F7F4; border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:14px;">
+      <div>
+        <div style="font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-60);">Tiến độ bài tập</div>
+        <div style="font-size:28px; font-weight:800;">{{ progress }}%</div>
+      </div>
+      <div style="text-align:right;">
+        <span style="font-size:12px; font-weight:700;">{{ done }} / {{ total }} nhiệm vụ hoàn tất</span>
+        <div class="progress" style="width:150px; margin-top:6px; background:#fff;"><div style="width:{{ progress }}%"></div></div>
+      </div>
+    </div>
+
+    <div class="gantt-cols">
+      {% set gh = ["Đầu kỳ", "Trước kỳ", "Giữa kỳ", "Về đích"] %}
+      {% for h in gh %}<span>{{ h }}</span>{% endfor %}
+    </div>
+    <div style="display:grid; gap:8px;">
+      {% for phase, deliv in tpl.phases %}
+      <div class="gantt-track">
+        <div class="gantt-bar" style="left:{{ [0, 20, 45, 78][loop.index0] }}%; width:{{ [30, 32, 32, 20][loop.index0] }}%; background:rgba(107,72,255,.14); color:#4A34B3; border:1px solid rgba(107,72,255,.25);">
+          {{ phase }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-60);">Cột mốc quan trọng (Milestones)</span>
+        <span class="badge b-pur">{{ tpl.name }}</span>
+      </div>
+      <div class="mile-grid">
+        {% for m in milestones %}
+        <div class="mile {{ 'done' if milestone_done(m) }}">
+          <div>{% if milestone_done(m) %}✓ {% else %}{{ m.sort_order }}. {% endif %}{{ m.label }}</div>
+          <div class="d">{{ m.due_date or 'Chưa đặt hạn' }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div style="margin-top:16px; display:flex; justify-content:space-between; border-top:1px solid var(--line); padding-top:12px;">
+      <a href="{{ url_for('meetings', pid=p.id) }}" class="btn ghost tiny">📅 Họp & Tài liệu</a>
+      <a href="{{ url_for('contribution', pid=p.id) }}" style="font-size:12px; font-weight:700;">Xem bảng điểm GV →</a>
+    </div>
+  </div>
+
+  <div style="display:grid; gap:18px;">
+    <div class="card col-3">
+      <h2>Chỉ số đóng góp (Contribution Track)</h2>
+      <p class="sub">Tỷ trọng: Work {{ formula.workload_pct }}% • On-time {{ formula.ontime_pct }}% • Peer {{ formula.peer_pct }}%{% if formula.leader_bonus_pct %} • Leader +{{ formula.leader_bonus_pct }}%{% endif %}</p>
+      <div style="display:grid; gap:10px;">
+        {% for r in contrib %}
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:700;">
+            <span>{{ r.short_name }}{% if r.member_role == 'leader' %} 👑{% endif %}</span>
+            <span style="color:#6B48FF;">{{ r.contrib }}% <small style="color:var(--ink-40); font-weight:500;">({{ r.total_points }} pts)</small></span>
+          </div>
+          <div class="bar" style="margin-top:4px;"><div style="width:{{ r.contrib }}%; --c:#6B48FF;"></div></div>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top:14px; display:flex; justify-content:space-between; border-top:1px solid var(--line); padding-top:10px;">
+        <span style="font-size:11px; color:var(--ink-60);">Đo lường minh bạch theo công thức {{ 'tùy chỉnh' if formula.leader_bonus_pct else 'chuẩn' }}</span>
+        <a href="{{ url_for('contribution', pid=p.id) }}" style="font-size:12px; font-weight:700;">Chi tiết →</a>
+      </div>
+    </div>
+
+    <div class="card col-3">
+      <h2>Thành viên & Leaderboard</h2>
+      <p class="sub">Ghi nhận nỗ lực & vinh danh thành viên</p>
+      <div style="display:grid; gap:10px;">
+        {% for r in contrib | sort(attribute='contrib', reverse=true) %}
+        <div style="display:flex; gap:10px; align-items:center; background:{{ '#FFF9EB' if loop.first else '#fff' }}; border:1px solid {{ '#FFE8B8' if loop.first else 'var(--line)' }}; border-radius:14px; padding:10px 12px;">
+          <span class="avatar" style="width:30px; height:30px; font-size:12px; background:hsl({{ r.id * 67 % 360 }},60%,55%);">{{ r.short_name[:1] }}</span>
+          <div style="flex:1; font-size:12px;">
+            <strong>{{ r.short_name }}</strong>{% if loop.first %} <span class="badge b-yel">MVP Đợt này</span>{% endif %}
+            <div style="font-size:10.5px; color:var(--ink-60);">{{ r.done }}/{{ r.assigned }} tasks • {{ r.ontime }} đúng hạn</div>
+          </div>
+          <div style="text-align:right; font-size:12px; font-weight:800;">{{ r.total_points }} pts</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:10px;">
+        <span style="font-size:11px; color:var(--ink-60);">Peer Review: <strong style="color:#6B48FF;">Sắp mở</strong></span>
+        <a class="btn tiny" href="{{ url_for('report', pid=p.id) }}">📄 Xuất báo cáo GV</a>
+      </div>
+    </div>
+
+    {% if meeting_next %}
+    <div class="card col-3" style="background:linear-gradient(135deg,#F1EEFF,#fff);">
+      <h2>📅 Cuộc họp sắp tới</h2>
+      <h3 style="font-size:13px; margin:6px 0 2px;">{{ meeting_next.title }}</h3>
+      <p class="sub">{{ meeting_next.scheduled_at }} • Chủ trì: {{ meeting_next.host_name }}</p>
+      <a class="btn tiny" target="_blank" href="{{ meeting_next.meet_link }}">📹 Tham gia Meet</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Dự án của tôi - TeamTrack{% endblock %}
+{% block content %}
+<h1 class="page-title">📁 Dự án của tôi</h1>
+<p class="page-sub">Không gian làm việc cá nhân & theo dõi đa dự án bài tập nhóm</p>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="profile-row">
+    <span class="avatar" style="background:hsl({{ user.id * 67 % 360 }},60%,55%)">{{ user.short_name[:1] }}</span>
+    <div style="flex:1; min-width: 220px;">
+      <h2 style="font-size:18px; margin:0;">{{ user.full_name }}
+        <span class="badge b-pur">{{ user.default_role }}</span>
+      </h2>
+      <p class="sub" style="margin:4px 0 0;">MSSV: {{ user.student_id }} • {{ user.university }}</p>
+      <p class="sub" style="margin:4px 0 0;">📧 {{ user.email }} • <span style="color:#059669;font-weight:700;">🔥 Chuỗi {{ user.streak_days }} ngày hoạt động tích cực</span></p>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:10px; flex:1; justify-content:flex-end; min-width: 220px;">
+      <div class="stat-box"><div class="n">{{ projects|length }}</div><div class="l">Dự án tham gia</div></div>
+      <div class="stat-box"><div class="n" style="color:#059669;">{{ user.ontime_rate_pct }}%</div><div class="l">Đúng hạn deadline</div></div>
+      <div class="stat-box"><div class="n" style="color:#6B48FF;">{{ user.credibility_points }} pts</div><div class="l">Điểm uy tín</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="bento">
+  <div class="card col-3 wide" style="margin-bottom:16px;">
+    <h2>📚 Danh sách dự án của tôi</h2>
+    <p class="sub">Chọn dự án để mở không gian làm việc chi tiết</p>
+    <div class="proj-grid">
+      {% for proj in projects %}
+      <a class="card proj-card" href="{{ url_for('project', pid=proj.id) }}">
+        <div style="display:flex; justify-content:space-between; gap:8px;">
+          <span class="badge b-org">{{ proj.template_name.icon }} {{ proj.template_name.name }}</span>
+          <span class="badge {{ 'b-grn' if proj.role == 'leader' else 'b-yel' }}">{{ 'Nhóm trưởng 👑' if proj.role == 'leader' else ('Thành viên' if proj.role else 'Chưa tham gia') }}</span>
+        </div>
+        <h3>{{ proj.code }}</h3>
+        <p>{{ proj.title }}</p>
+        <div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:var(--ink-60);">
+            <span>Tiến độ bài tập</span><span style="color:#6B48FF;">{{ proj.progress }}%</span>
+          </div>
+          <div class="progress" style="margin-top:4px;"><div style="width:{{ proj.progress }}%"></div></div>
+        </div>
+        <div class="proj-meta">
+          <span>GVHD: {{ proj.teacher }}</span>
+          <span style="color:#FF6B6B;">{{ proj.deadline_text }}</span>
+        </div>
+      </a>
+      {% else %}
+      <p class="sub">Chưa có dự án nào. Hãy tạo dự án đầu tiên bên dưới!</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card col-3 wide">
+    <h2>➕ Tạo bài tập nhóm mới</h2>
+    <p class="sub">Chọn template lộ trình, tạo dự án với Milestones chuẩn hóa</p>
+    <form method="post" action="{{ url_for('create_project') }}" class="form-grid">
+      <div>
+        <label>Tên môn học & mã lớp</label>
+        <input name="code" required placeholder="vd: Thương mại điện tử - Nhóm 5 (K62)">
+      </div>
+      <div>
+        <label>Tên đề tài bài tập</label>
+        <input name="title" required placeholder="vd: Marketing Mix cho doanh nghiệp F&B">
+      </div>
+      <div>
+        <label>Template lộ trình</label>
+        <select name="template_key">
+          {% for k, t in templates.items() %}
+          <option value="{{ k }}">{{ t.icon }} {{ t.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Giảng viên hướng dẫn</label>
+        <input name="teacher" placeholder="vd: TS. Nguyễn Thị Hoa">
+      </div>
+      <div>
+        <label>Mục tiêu điểm số</label>
+        <input name="target" placeholder="vd: Điểm A (9.0+)" value="Điểm A">
+      </div>
+      <div>
+        <label>Deadline nộp bài</label>
+        <input type="date" name="deadline">
+      </div>
+      <div style="grid-column:1/-1;">
+        <label>Thành viên tham gia</label>
+        <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:13px; font-weight:600; padding:4px 0;">
+          {% for m in all_members %}
+          <label style="display:flex; align-items:center; gap:6px; margin:0; font-weight:600;">
+            <input type="checkbox" name="members" value="{{ m.id }}" style="width:auto;"> {{ m.short_name }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-actions" style="grid-column:1/-1;">
+        <button class="btn" type="submit">Tạo dự án</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

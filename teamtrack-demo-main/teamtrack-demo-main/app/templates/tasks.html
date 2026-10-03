@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Kanban - {{ p.code }}{% endblock %}
+{% block content %}
+<div class="banner">
+  <div>
+    <h1>📋 Bảng Kanban — {{ p.code }}</h1>
+    <p>Kéo chuyển trạng thái & nộp minh chứng để nhận điểm Contribution tự động • Hạn: <strong style="color:#FF6B6B;">{{ deadline_info(p.deadline) }}</strong></p>
+  </div>
+  <a href="{{ url_for('report', pid=p.id) }}" class="btn ghost">📄 Xem báo cáo GV</a>
+</div>
+
+<div class="kanban-board">
+  {% set col_meta = {
+    'todo': ('Cần làm (To-Do)', 'b-cor'),
+    'in_progress': ('Đang làm', 'b-org'),
+    'review': ('Chờ duyệt / Đã nộp', 'b-pur'),
+    'done': ('Đã xong', 'b-grn')
+  } %}
+  {% for status in statuses %}
+  <div class="kanban-col">
+    <h3><span class="badge {{ col_meta[status][1] }}">{{ col_meta[status][0] }}</span>
+      <span class="cnt">{{ columns[status]|length }}</span></h3>
+
+    {% for t in columns[status] %}
+    {% set urgent = status not in ('done','review') and t.due_at and ((t.due_at - now).total_seconds() < 172800) %}
+    <div class="task-card {{ 'urgent' if urgent }}">
+      <div class="row1">
+        <span class="badge b-yel">{{ t.points }}pt</span>
+        {% if t.status == 'done' %}<span class="badge b-grn">{{ '+10% bonus' if t.early_bonus_pct > 0 else 'Đã xong' }}</span>{% endif %}
+        <span style="font-size:10px; font-weight:700; color:{{ '#FF6B6B' if urgent and t.due_at else 'var(--ink-40)' }};">{{ deadline_info(t.due_at) if t.due_at else 'Chưa đặt hạn' }}</span>
+      </div>
+      <div class="t">{{ t.title }}</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; border-top:1px solid var(--line); padding-top:8px;">
+        <span class="assignee">👤 {{ t.assignee }}</span>
+        {% if t.proof_url %}<a style="font-size:10px; font-weight:700;" target="_blank" href="{{ t.proof_url }}">Minh chứng ↗</a>{% endif %}
+      </div>
+
+      <form class="task-move" method="post" action="{{ url_for('tasks', pid=p.id) }}">
+        <input type="hidden" name="action" value="move">
+        <input type="hidden" name="task_id" value="{{ t.id }}">
+        <select name="new_status">
+          {% for s in statuses if s != t.status %}
+          <option value="{{ s }}">{{ col_meta[s][0] }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn tiny" type="submit">Chuyển</button>
+      </form>
+
+      {% if status != 'done' %}
+      <details>
+        <summary>📤 Nộp minh chứng (nhận thưởng đúng hạn)</summary>
+        <form method="post" action="{{ url_for('tasks', pid=p.id) }}">
+          <input type="hidden" name="action" value="submit">
+          <input type="hidden" name="task_id" value="{{ t.id }}">
+          <input type="url" name="proof_url" placeholder="Link Drive / Docs / Canva minh chứng">
+          <input type="text" name="note" placeholder="Ghi chú hoàn thành (tùy chọn)">
+          <button class="btn tiny" type="submit">Xác nhận nộp</button>
+        </form>
+      </details>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="sub" style="margin:8px 4px;">Chưa có task nào ở cột này.</div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card" style="margin-top:18px;">
+  <h2>➕ Thêm task mới vào Cần làm</h2>
+  <p class="sub">Mỗi task được gán độ khó (Task Points) dùng cho tính Contribution</p>
+  <form method="post" action="{{ url_for('tasks', pid=p.id) }}" class="form-grid">
+    <input type="hidden" name="action" value="add">
+    <div style="grid-column:1/-1;"><textarea name="title" rows="1" required placeholder="Tên công việc, vd: Thiết kế Infographic so sánh Shopee vs TikTok"></textarea></div>
+    <div>
+      <label>Giao cho</label>
+      <select name="assignee_id">
+        {% for m in members %}<option value="{{ m.id }}">{{ m.short_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Độ khó (points)</label>
+      <select name="points">
+        <option value="3">Vừa (3pt)</option>
+        <option value="4">Khó (4pt)</option>
+        <option value="5">Cao (5pt)</option>
+      </select>
+    </div>
+    <div>
+      <label>Hạn chót</label>
+      <input type="datetime-local" name="due_at">
+    </div>
+    <div class="form-actions" style="grid-column:1/-1;">
+      <button class="btn" type="submit">Thêm task</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Họp & Tài liệu - {{ p.code }}{% endblock %}
+{% block content %}
+<div class="banner">
+  <div>
+    <h1>👥 Agenda & Kho Tài liệu nhóm</h1>
+    <p>Lịch họp với link Google Meet và tài nguyên Drive tập trung của {{ p.code }}</p>
+  </div>
+</div>
+
+<div class="bento">
+  <div class="card col-3">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div><h2 style="font-size:15px;">Agenda cuộc họp</h2><p class="sub">{{ meetings|length }} cuộc họp đã lên lịch</p></div>
+    </div>
+    <div style="display:grid; gap:12px;">
+      {% for m in meetings %}
+      <div class="meet-card">
+        <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap;">
+          <div style="flex:1; min-width:200px;">
+            <span class="badge b-pur">{{ fmt(m.scheduled_at) if m.scheduled_at else 'Sắp xếp' }}</span>
+            <h4>{{ m.title }}</h4>
+            <div class="sub" style="margin:2px 0 0;">Chủ trì: {{ m.host_name or 'Chưa đặt' }}</div>
+            <p class="agenda">{{ m.agenda }}</p>
+          </div>
+          <a class="btn tiny" target="_blank" href="{{ m.meet_link }}">📹 Tham gia Meet</a>
+        </div>
+      </div>
+      {% else %}
+      <p class="sub">Chưa có cuộc họp nào. Hãy lên lịch cuộc họp đầu tiên!</p>
+      {% endfor %}
+    </div>
+
+    <details style="margin-top:14px;">
+      <summary style="font-size:12px; font-weight:800; cursor:pointer; color:#6B48FF;">➕ Lên lịch cuộc họp mới</summary>
+      <form method="post" style="margin-top:10px; display:grid; gap:8px;">
+        <input type="hidden" name="action" value="meeting">
+        <input name="title" required placeholder="Chủ đề cuộc họp">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <input type="datetime-local" name="time">
+          <input name="host" placeholder="Chủ trì" value="{{ user.short_name }}">
+        </div>
+        <input type="url" name="meet_link" placeholder="https://meet.google.com/...">
+        <textarea name="agenda" rows="3" placeholder="Nội dung thảo luận (Agenda)..."></textarea>
+        <div class="form-actions"><button class="btn" type="submit">Lưu cuộc họp</button></div>
+      </form>
+    </details>
+  </div>
+
+  <div class="card col-3">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div><h2 style="font-size:15px;">📂 Kho tài liệu & minh chứng</h2><p class="sub">{{ docs|length }} tài liệu đang lưu</p></div>
+      <a class="btn ghost tiny" target="_blank" href="https://drive.google.com/">Google Drive Nhóm ↗</a>
+    </div>
+    <div class="doc-grid">
+      {% for d in docs %}
+      <div class="doc-card">
+        <div class="doc-name">{{ d.name }}</div>
+        <div class="doc-meta">{{ d.file_type }} • {{ d.size_label }} • do {{ d.uploaded_by }} tải lên</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:8px; border-top:1px solid var(--line);">
+          <span class="badge b-grn">Sẵn sàng</span>
+          <a style="font-size:11px; font-weight:700;" target="_blank" href="{{ d.drive_url }}">Mở xem →</a>
+        </div>
+      </div>
+      {% else %}
+      <p class="sub">Chưa có tài liệu nào.</p>
+      {% endfor %}
+    </div>
+
+    <details style="margin-top:14px;">
+      <summary style="font-size:12px; font-weight:800; cursor:pointer; color:#6B48FF;">➕ Thêm tài liệu mới</summary>
+      <form method="post" style="margin-top:10px; display:grid; gap:8px;">
+        <input type="hidden" name="action" value="doc">
+        <input name="name" required placeholder="Tên tài liệu, vd: Ke_hoach_tong_the.docx">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <input name="file_type" placeholder="Loại (Word, PDF, Canva)" value="Docs">
+          <input name="size_label" placeholder="Kích thước (1.2 MB)">
+        </div>
+        <input type="url" name="drive_url" placeholder="https://drive.google.com/...">
+        <div class="form-actions"><button class="btn" type="submit">Lưu tài liệu</button></div>
+      </form>
+    </details>
+  </div>
+</div>
+{% endblock %}
