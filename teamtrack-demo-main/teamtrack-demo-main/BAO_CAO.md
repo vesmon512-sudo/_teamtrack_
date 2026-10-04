@@ -2,9 +2,12 @@
 
 **Nền tảng quản lý bài tập nhóm & đo lường đóng góp dành cho sinh viên**
 
-- **Sinh viên thực hiện:** [Họ tên sinh viên — MSSV — Lớp]
-- **Môn học / Giảng viên hướng dẫn:** [Điền]
-- **Thời gian thực hiện:** [Điền]
+- **Sinh viên thực hiện:** 
+1. Nguyễn Hà Anh - 2412150037
+2. Nguyễn Thị Minh Nguyệt - 2412150237
+3. Vũ Ngọc Khánh Linh - 2412150178
+4. Nguyễn Huy Nhật - 2412150238
+- **Môn học / Giảng viên hướng dẫn:** TINH314 - Ths. Trần Công Minh
 
 ---
 
