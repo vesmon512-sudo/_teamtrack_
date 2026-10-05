@@ -15,12 +15,12 @@ Làm việc nhóm là hình thức học tập phổ biến ở các trường �
 | Thành phần | Công nghệ | Ghi chú |
 |---|---|---|
 | Frontend | HTML + CSS thuần | Jinja2 template, không dùng JS framework, theo phong cách thiết kế Bento |
-| Backend | Python 3.14 + Flask | 1 file `app.py` (~400 dòng), route rõ ràng, dễ đọc |
-| Database | MySQL 8.4 | 8 bảng InnoDB, kết nối qua PyMySQL |
-| WSGI server | Gunicorn | 2 worker, chạy dưới systemd |
-| Reverse proxy | Caddy | Tự động xin/gia hạn chứng chỉ Let's Encrypt |
-| Public access | Cloudflare Tunnel | HTTPS + cert công khai hợp lệ không cần mở port |
-| Hệ điều hành | Ubuntu (server) | Các service chạy qua systemd, tự khởi động khi reboot |
+| Backend | Python 3.12+ + Flask | 1 file `app.py` (~400 dòng), route rõ ràng, dễ đọc |
+| Database | PostgreSQL trên Supabase | 8 bảng, kết nối qua `psycopg2` bằng chuỗi `DATABASE_URL` (Session pooler) |
+| WSGI server | Gunicorn | Dùng khi deploy production |
+| Hosting | Render (gói Free) | Tự động deploy lại mỗi khi push lên GitHub, có sẵn HTTPS |
+| Cấu hình | Biến môi trường / file `.env` | `DATABASE_URL`, `TT_SECRET_KEY` (thư viện `python-dotenv`) |
+
 
 ## 3. Chức năng chính
 
