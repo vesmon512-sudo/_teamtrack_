@@ -38,15 +38,12 @@ Xây dựng một nền tảng web cho phép:
 TeamTrack là ứng dụng web đa người dùng, được xây dựng theo mô hình **3 lớp (3-tier)**:
 
 ```
-┌───────────────┐      ┌──────────────────────┐      ┌─────────────┐
-│  Frontend      │ HTTP │  Backend              │ SQL  │  Database   │
-│  HTML + CSS    │◄────►│  Python (Flask)       │◄────►│  MySQL 8.4  │
-│  (Jinja2)      │      │  + Gunicorn (WSGI)    │      └─────────────┘
-└───────────────┘      └──────────┬───────────┘
-                                  │ reverse proxy
-                       ┌──────────▼───────────┐
-                       │  Caddy (port 80/443)  │──► Cloudflare Tunnel (HTTPS public)
-                       └──────────────────────┘
+┌────────────────┐      ┌───────────────────────┐      ┌──────────────────────┐
+│ Trình duyệt    │      │ Backend (Render)      │      │ Database (Supabase)  │
+│ HTML + CSS     │◄────►│ Python (Flask)        │◄────►│ PostgreSQL           │
+│ (Jinja2)       │      │ + Gunicorn (WSGI)     │      │ (Session pooler)     │
+└────────────────┘      └───────────────────────┘      └──────────────────────┘
+   HTTPS (Render cấp chứng chỉ)      SQL qua DATABASE_URL
 ```
 
 ### 2.2. Tech stack và lý do lựa chọn
@@ -56,17 +53,17 @@ TeamTrack là ứng dụng web đa người dùng, được xây dựng theo mô
 | Frontend | HTML + CSS thuần, Jinja2 template | Đơn giản, không phụ thuộc JS framework, phù hợp quy mô sinh viên; server render giúp code dễ đọc, dễ bảo trì |
 | Font & thiết kế | Plus Jakarta Sans, phong cách Bento Card | Giao diện hiện đại, hiển thị tốt trên mobile |
 | Backend | Python 3 + Flask | Framework nhẹ, cú pháp rõ ràng, phù hợp người mới học web backend; toàn bộ logic nằm trong 1 file `app.py` |
-| DB driver | PyMySQL | Pure-Python, cài đặt đơn giản, không cần build C extension |
-| Database | MySQL 8.4 (InnoDB) | Phổ biến nhất trong doanh nghiệp và giáo trình; hỗ trợ khóa ngoại, đảm bảo toàn vẹn dữ liệu |
-| WSGI | Gunicorn | Chuẩn producción cho Flask, chạy dưới systemd tự restart |
-| Reverse proxy | Caddy | Cấu hình tối giản; **tự động xin và gia hạn chứng chỉ TLS Let's Encrypt** |
-| Public access | Cloudflare Tunnel | Xuất bản ra internet qua kết nối outbound, không cần mở port modem, có chứng chỉ công khai hợp lệ |
+| DB driver | psycopg2 (`psycopg2-binary`) | Driver PostgreSQL phổ biến nhất cho Python, bản binary cài trực tiếp bằng pip, không cần biên dịch |
+| Database | PostgreSQL trên Supabase | CSDL quan hệ mạnh, hỗ trợ khóa ngoại và ràng buộc toàn vẹn; Supabase cung cấp bản managed miễn phí, có giao diện quản trị và sao lưu, không phải tự vận hành server database |
+| WSGI | Gunicorn | Chuẩn production cho Flask, được Render khởi chạy và tự restart khi tiến trình lỗi |
+| Hosting | Render (gói Free) | Kết nối trực tiếp với GitHub, **tự động build và deploy mỗi lần push**, có sẵn HTTPS và chứng chỉ hợp lệ, không cần tự quản trị server |
+| Cấu hình & bí mật | Biến môi trường, `python-dotenv` | Chuỗi kết nối database và `SECRET_KEY` nằm ngoài mã nguồn: file `.env` khi chạy local, mục Environment khi chạy trên Render |
 
 ---
 
 ## PHẦN 3. THIẾT KẾ HỆ THỐNG
 
-### 3.1. Sơ đồ cơ sở dữ liệu (MySQL — 8 bảng)
+### 3.1. Sơ đồ cơ sở dữ liệu (PostgreSQL — 8 bảng)
 
 ```
 users ──< project_members >── projects ──< tasks
@@ -87,7 +84,7 @@ users ──< project_members >── projects ──< tasks
 | `documents` | Kho tài liệu | name, file_type, size_label, drive_url, uploaded_by |
 | `formula_settings` | Công thức đóng góp | workload_pct, ontime_pct, peer_pct, leader_bonus_pct |
 
-Toàn bộ bảng dùng **InnoDB + FOREIGN KEY + ON DELETE CASCADE** để đảm bảo toàn vẹn tham chiếu; charset `utf8mb4` hỗ trợ đầy đủ tiếng Việt.
+Toàn bộ bảng dùng **PRIMARY KEY (kiểu `SERIAL` tự tăng) + FOREIGN KEY + ON DELETE CASCADE** để đảm bảo toàn vẹn tham chiếu; PostgreSQL lưu chuỗi dạng UTF-8 nên hỗ trợ đầy đủ tiếng Việt. Thời gian dùng kiểu `TIMESTAMP`, ngày dùng kiểu `DATE`. Mã tạo bảng nằm trong `app/schema.sql`.
 
 ### 3.2. Luồng xử lý chính
 
@@ -127,7 +124,9 @@ Trong đó **W, O, P, LeaderBonus** do Nhóm trưởng tự cấu hình (mặc �
 - Tất cả truy vấn SQL dùng **parameterized query** (chống SQL Injection);
 - Templates tự escape biến (Jinja2 autoescape) — chống XSS;
 - Phân quyền: chỉ Leader chỉnh được công thức Contribution (nút bấm bị khóa với thành viên thường);
-- Production: app chỉ bind `127.0.0.1`, mọi truy cập ra ngoài qua Caddy (HTTPS) / Cloudflare Tunnel.
+- Chuỗi kết nối database (chứa mật khẩu) và `SECRET_KEY` **không nằm trong mã nguồn**: lưu trong biến môi trường, file `.env` được đưa vào `.gitignore` nên không bị đẩy lên GitHub;
+- Bật **Row Level Security (RLS)** trên toàn bộ 8 bảng, không tạo policy công khai, nên không ai truy cập được dữ liệu trực tiếp qua Supabase Data API bằng khóa công khai; chỉ backend Flask (kết nối bằng chuỗi riêng) đọc/ghi được;
+- Production: toàn bộ truy cập đi qua **HTTPS** do Render cung cấp.
 
 ---
 
@@ -160,33 +159,76 @@ Leaderboard xếp hạng theo % đóng góp, gắn huy hiệu **MVP**; trang **B
 
 ### 5.1. Môi trường
 
-- Ubuntu Server trên máy ảo Proxmox; Python 3.14; MySQL 8.4;
-- Tất cả dịch vụ quản lý bằng **systemd**, tự khởi động khi reboot:
+Ứng dụng được triển khai theo mô hình **PaaS + Database-as-a-Service**, không dùng server tự quản trị:
 
-| Service | Vai trò |
-|---|---|
-| `mysql.service` | Cơ sở dữ liệu |
-| `teamtrack-web.service` | Gunicorn 2 worker, lắng nghe `127.0.0.1:5000` |
-| `caddy` | Reverse proxy, phục vụ HTTPS port 443 (tự quản lý chứng chỉ) |
-| `cloudflared-tunnel.service` | Cloudflare Tunnel — công bố app ra internet với HTTPS + chứng chỉ công khai |
+| Thành phần | Dịch vụ | Vai trò |
+|---|---|---|
+| Mã nguồn | GitHub | Lưu trữ repo, là nguồn kích hoạt deploy tự động |
+| Backend | Render Web Service (gói Free, Python 3.14) | Chạy Flask qua Gunicorn, cấp HTTPS |
+| Database | Supabase (gói Free), PostgreSQL | Lưu toàn bộ dữ liệu, kết nối qua **Session pooler** |
+| Giám sát (tùy chọn) | UptimeRobot (gói Free) | Gọi định kỳ vào `/login` để giữ server không bị "ngủ" |
+
+Địa chỉ ứng dụng: **https://teamtrack-5zqa.onrender.com**
 
 ### 5.2. Quy trình triển khai
 
+**Bước 1. Tạo database trên Supabase**
+
+- Tạo project mới, đặt mật khẩu database;
+- Vào **SQL Editor**, chạy toàn bộ `app/schema.sql` để tạo 8 bảng và bật RLS;
+- Vào **Connect → Session pooler**, lấy chuỗi kết nối dạng `postgresql://postgres.<project-ref>:<mật-khẩu>@aws-0-<region>.pooler.supabase.com:5432/postgres`.
+
+> Phải dùng **Session pooler** thay vì Direct connection, vì Direct connection chỉ hỗ trợ IPv6, còn Render kết nối bằng IPv4 nên báo `Network is unreachable`.
+
+**Bước 2. Nạp dữ liệu mẫu (chạy một lần trên máy cá nhân)**
+
 ```bash
-# 1. Database
-mysql -u root < app/schema.sql        # tạo DB, bảng, user MySQL
-# 2. Ứng dụng
 cd app && python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python seed.py              # nạp dữ liệu mẫu
-# 3. Dịch vụ
-systemctl enable --now mysql teamtrack-web caddy cloudflared-tunnel
+# tạo file .env chứa DATABASE_URL và TT_SECRET_KEY
+.venv/bin/python seed.py              # nạp 4 user, 3 dự án, 30 task
 ```
 
-### 5.3. HTTPS & chứng chỉ
+**Bước 3. Tạo Web Service trên Render**
 
-- **Kênh public hiện tại:** Cloudflare Tunnel → domain `*.trycloudflare.com` với **chứng chỉ TLS công khai hợp lệ** (bình chọn bởi Google Trust Services), hoạt động kể cả khi modem không mở port.
-- **Kênh domain riêng:** script `deploy/enable-tls.sh <domain>` thêm site vào Caddyfile; Caddy tự động thực hiện ACME HTTP-01 với Let's Encrypt, **tự xin và tự gia hạn chứng chỉ** theo chu kỳ. Điều kiện: bản ghi A của domain trỏ về IP public của server và port 80/443 được forward tới server.
+| Mục | Giá trị |
+|---|---|
+| Nguồn | Repo GitHub của dự án |
+| Root Directory | Thư mục chứa `app.py` (`app`) |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `gunicorn app:app` |
+| Instance Type | Free |
+| Environment | `DATABASE_URL` (chuỗi Session pooler), `TT_SECRET_KEY` (chuỗi ngẫu nhiên dài) |
+
+Sau khi Render báo **Live**, ứng dụng truy cập được qua URL công khai. Từ đó mỗi lần `git push`, Render tự động build và deploy lại (Continuous Deployment).
+
+### 5.3. HTTPS & tên miền
+
+- Render tự cấp và **tự gia hạn chứng chỉ TLS** cho tên miền `*.onrender.com`, mọi truy cập đều qua HTTPS, không cần cấu hình thủ công;
+- Có thể gắn tên miền riêng trong phần **Custom Domains** của Render (Render tự cấp chứng chỉ cho tên miền đó);
+- Ngoài ra, mã nguồn vẫn giữ script `deploy/enable-tls.sh <domain>` cho trường hợp tự host trên server Ubuntu riêng với Caddy (tự xin chứng chỉ Let's Encrypt). Cách này không được dùng trong bản triển khai hiện tại.
+
+### 5.4. Vận hành và giới hạn của gói miễn phí
+
+| Giới hạn | Ảnh hưởng | Cách xử lý |
+|---|---|---|
+| Render Free tự "ngủ" sau 15 phút không có truy cập | Lần mở đầu tiên sau đó chậm khoảng 30-50 giây | Mở link trước giờ demo vài phút, hoặc dùng UptimeRobot ping `/login` mỗi 5 phút |
+| Supabase Free tự tạm dừng project sau 7 ngày không hoạt động | Web báo lỗi kết nối database | Bấm **Restore project** trên dashboard; ping định kỳ vào `/login` (có truy vấn DB) cũng giúp tránh bị tạm dừng |
+| Render Free có 750 giờ chạy mỗi tháng | Đủ cho 1 service chạy liên tục | Không tạo thêm service Free khác trên cùng tài khoản |
+
+### 5.5. Các thay đổi khi chuyển từ MySQL sang PostgreSQL
+
+Phiên bản đầu của dự án dùng MySQL tự host. Khi chuyển sang Supabase (PostgreSQL), mã nguồn được điều chỉnh như sau:
+
+| Nội dung | MySQL (cũ) | PostgreSQL (mới) |
+|---|---|---|
+| Driver | `PyMySQL` | `psycopg2-binary` |
+| Khóa tự tăng | `INT AUTO_INCREMENT` | `SERIAL` |
+| Lấy id vừa chèn | `lastrowid` | `INSERT ... RETURNING id` (xử lý trong `db.py`; riêng hai bảng không có cột `id` là `project_members` và `formula_settings` thì bỏ qua) |
+| Bỏ qua bản ghi trùng | `ON DUPLICATE KEY UPDATE` | `ON CONFLICT (project_id, user_id) DO NOTHING` |
+| Kiểu cờ bật/tắt | `TINYINT(1)` | `SMALLINT` |
+| Kiểu thời gian | `DATETIME` | `TIMESTAMP` |
+| Cấu hình kết nối | `TT_DB_HOST`, `TT_DB_USER`, `TT_DB_PASSWORD`... | Một biến duy nhất `DATABASE_URL` |
 
 ---
 
@@ -205,14 +247,14 @@ systemctl enable --now mysql teamtrack-web caddy cloudflared-tunnel
 | Chỉnh công thức (Leader / thường) | Leader → lưu và tính lại %; thành viên thường → form bị khóa |
 | Tổng % đóng góp của nhóm | Luôn bằng 100% sau mọi lần cấu hình lại |
 | Báo cáo GV | Render đúng số liệu thực tế từ DB, in PDF chuẩn |
-| Kiểm thử các route qua HTTPS public | Tất cả trả 200/302 đúng, chứng chỉ hợp lệ |
+| Truy cập bản deploy qua HTTPS (Render) | Trang tải được qua HTTPS, đăng nhập và đọc/ghi dữ liệu trên Supabase hoạt động |
 
 ### 6.2. Hạn chế hiện tại
 
 1. Chưa có đăng ký tài khoản tự do và phân quyền theo nhiều cấp (chỉ demo 4 tài khoản sẵn);
 2. Peer Review mới dùng điểm nền chung, chưa có form đánh giá chéo từng cặp;
 3. Tính năng đồng bộ Google Calendar mới ở mức link ngoài;
-4. Quick tunnel của Cloudflare đổi URL mỗi lần khởi động lại dịch vụ;
+4. Gói miễn phí của Render tự "ngủ" sau 15 phút không truy cập (lần mở đầu mất 30-50 giây) và Supabase Free tự tạm dừng sau 7 ngày không hoạt động;
 5. Chưa có test tự động (unit test) và CI/CD.
 
 ### 6.3. Hướng phát triển
@@ -221,7 +263,7 @@ systemctl enable --now mysql teamtrack-web caddy cloudflared-tunnel
 - Thông báo deadline qua email/Zalo OA;
 - Xuất báo cáo PDF thật (weasyprint) thay vì in trình duyệt;
 - Tích hợp Google Calendar API và Drive API;
-- Viết unit test + pytest, triển khai CI/CD.
+- Viết unit test + pytest, thêm CI chạy test tự động (GitHub Actions) trước khi deploy.
 
 ---
 
@@ -236,8 +278,8 @@ systemctl enable --now mysql teamtrack-web caddy cloudflared-tunnel
 ## PHỤ LỤC B. TÀI LIỆU THAM KHẢO
 
 1. Flask Documentation — https://flask.palletsprojects.com
-2. MySQL 8.4 Reference Manual — https://dev.mysql.com/doc/
-3. PyMySQL Documentation — https://pymysql.readthedocs.io
-4. Caddy Documentation — https://caddyserver.com/docs
-5. Cloudflare Tunnel — https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
-6. Let's Encrypt — https://letsencrypt.org/docs/
+2. PostgreSQL Documentation — https://www.postgresql.org/docs/
+3. Supabase Documentation — https://supabase.com/docs
+4. Psycopg2 Documentation — https://www.psycopg.org/docs/
+5. Gunicorn Documentation — https://docs.gunicorn.org
+6. Render Documentation — https://render.com/docs
