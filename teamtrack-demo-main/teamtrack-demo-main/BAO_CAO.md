@@ -119,6 +119,7 @@ Trong đó **W, O, P, LeaderBonus** do Nhóm trưởng tự cấu hình (mặc �
 
 ### 3.4. Bảo mật đã áp dụng
 
+
 - Mật khẩu lưu dạng **hash PBKDF2** (werkzeug), không lưu plain-text;
 - Session cookie ký bằng `SECRET_KEY`;
 - Tất cả truy vấn SQL dùng **parameterized query** (chống SQL Injection);
