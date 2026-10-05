@@ -54,7 +54,7 @@ webapp/
 
 ## 5. Hướng dẫn chạy app trên localhost
 
-App chạy trên máy của bạn (Flask), còn dữ liệu lưu trên **Supabase (PostgreSQL)**. Vì vậy máy cần có **kết nối Internet** khi chạy.
+App chạy trên máy (Flask), còn dữ liệu lưu trên **Supabase (PostgreSQL)**. Vì vậy máy cần có **kết nối Internet** khi chạy.
 
 ### 5.1. Yêu cầu môi trường
 
