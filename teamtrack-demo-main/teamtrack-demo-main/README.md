@@ -35,23 +35,24 @@ Làm việc nhóm là hình thức học tập phổ biến ở các trường �
 
 ## 4. Cấu trúc mã nguồn
 
+
 ```
-webapp/
+<tên-repo>/
 ├── app/
 │   ├── app.py            # Flask app: routes + logic (đơn giản, 1 file)
-│   ├── db.py             # Helper kết nối MySQL (PyMySQL)
-│   ├── schema.sql        # DDL: tạo DB, 8 bảng, user MySQL
+│   ├── db.py             # Helper kết nối PostgreSQL (psycopg2), đọc DATABASE_URL
+│   ├── schema.sql        # DDL PostgreSQL: tạo 8 bảng + bật Row Level Security
 │   ├── seed.py           # Dữ liệu mẫu: 4 user, 3 dự án, 30 task...
-│   ├── requirements.txt  # flask, PyMySQL, gunicorn
+│   ├── requirements.txt  # flask, psycopg2-binary, gunicorn, python-dotenv
+│   ├── .env.example      # Mẫu file cấu hình (copy thành .env)
 │   ├── templates/        # 8 trang .html (base, login, dashboard, project,
 │   │                     #   tasks, contribution, meetings, report)
 │   └── static/style.css  # Toàn bộ CSS (không dùng CSS framework)
 ├── deploy/
-│   └── enable-tls.sh     # Bật HTTPS cho domain (Caddy auto Let's Encrypt)
+│   └── enable-tls.sh     # (Tùy chọn) Bật HTTPS cho server riêng bằng Caddy
 ├── README.md             # File này
 └── BAO_CAO.md            # Báo cáo chi tiết nộp môn
 ```
-
 ## 5. Hướng dẫn chạy app trên localhost
 
 App chạy trên máy (Flask), còn dữ liệu lưu trên **Supabase (PostgreSQL)**. Vì vậy máy cần có **kết nối Internet** khi chạy.
